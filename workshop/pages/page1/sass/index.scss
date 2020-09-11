@@ -1,5 +1,11 @@
+@use 'use';
+@use 'useWith' with(
+    $display: none
+);
+
 .test{
     &_t1{
         display: none;
+
     }
 }

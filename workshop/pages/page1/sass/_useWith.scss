@@ -1,0 +1,8 @@
+$display: block !default;
+
+.useWith{
+    &_t1{
+        display: $display;
+        line-height: 1.3;
+    }
+}
