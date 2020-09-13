@@ -6,56 +6,85 @@ var gulp = require('gulp'),
     sass = require('gulp-dart-sass'),
     watcher = require('gulp-watch'),
     plumber = require('gulp-plumber'),
-    notify = require('gulp-notify'),
     babel = require('gulp-babel'),
-    template = require('gulp-art-include'),
+    htmlInclude = require('gulp-art-include'),
+    source = require('gulp-sourcemaps'),
     inlineSource = require('gulp-inline-source'),
-    htmlMin = require('gulp-htmlmin');
+    htmlMin = require('gulp-htmlmin'),
+    htmlLayout = require('gulp-html-extend'),
+    changeRootDirectory = require('gulp-inject-scripts'),
+    gulpHtmlPath = require('gulp-html-path');
 
-gulp.task('scssWatch', function(){
-    watcher('./workshop/pages/**/sass/*.scss', function(){
-        gulp.src('./workshop/pages/**/sass/*.scss')
-        .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
-        .pipe(plumber({errorHandler: notify.onError("SCSS Error: <%= error.message %>")}))
-        .pipe(gulp.dest('./dist/'));
-    });
+    //source easy to debug
+
+var path = {
+    sass: './workshop/**/sass/*.scss',
+    js: './workshop/**/js/*.js',
+    htmlInline:'./dist/**/*.html',
+    moveHtml: './workshop/**/*.html',
+    htmlInclude: './dist/**/!(_)*.html',
+    dist: './dist/'
+};
+
+var convertSass = (cb) => {
+    gulp.src(path.sass)
+    .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
+    .pipe(plumber())
+    .pipe(gulp.dest(path.dist));
+    cb();
+},
+convertES6 = (cb) => {
+    gulp.src(path.js)
+    .pipe(babel({
+        presets: ['@babel/env'],
+        minified: true
+    }))
+    .pipe(plumber())
+    .pipe(gulp.dest(path.dist));
+    cb();
+},
+moveHtml = (cb) => {
+    gulp.src(path.moveHtml)
+    .pipe(gulp.dest(path.dist));
+    cb();
+},
+convertHtmlInline = (cb) => {
+    gulp.src(path.htmlInline)
+    .pipe(gulpHtmlPath({ base: "./dist/", mode: "absolute"}))
+    .pipe(inlineSource())
+    .pipe(gulp.dest(path.dist))
+    .pipe(plumber());
+    cb();
+},
+convertHtmlInclude = (cb) => {
+    gulp.src(path.htmlInclude)
+    .pipe(htmlInclude({
+        data: {
+            "foo" : "bar"
+        }
+    }))
+    .pipe(htmlLayout({annotations:false, verbose:true, root: './dist/system/layout/'}))
+    .pipe(htmlMin({collapseWhitespace: true}))
+    .pipe(plumber())
+    .pipe(gulp.dest(path.dist));
+    cb();
+};
+
+gulp.task('scssWatch', function(cb){
+    watcher(path.sass, convertSass(cb));
+
 });
 
-
-gulp.task('htmlIncludeWatch', function(){
-    watcher('./workshop/pages/**/*.html', function(){
-        gulp.src('./workshop/pages/**/!(_)*.html')
-        .pipe(template({
-            data: {
-                "foo" : "bar"
-            }
-        }))
-        .pipe(htmlMin({collapseWhitespace: true}))
-        .pipe(plumber({errorHandler: notify.onError("SCSS Error: <%= error.message %>")}))
-        .pipe(gulp.dest('./dist/'));
-    });
+gulp.task('es6Watch', function(cb){
+    watcher(path.js, convertES6(cb));
 });
 
-
-gulp.task('cssJsImportWatch', function(){
-    watcher('./dist/**/*.html', function(){
-        gulp.src('./dist/**/*.html')
-        .pipe(inlineSource())
-        .pipe(plumber({errorHandler: notify.onError("SCSS Error: <%= error.message %>")}))
-        .pipe(gulp.dest('./dist/'));
-    });
+gulp.task('htmlIncludeWatch', function(cb){
+    watcher(path.htmlInclude, convertHtmlInclude(cb));
+});
+gulp.task('htmlInlineWatch', function(cb){
+    watcher(path.htmlInline, convertHtmlInline(cb));
 });
 
-gulp.task('es6Watch', function(){
-    watcher('./workshop/pages/**/js/*.js', function(){
-        gulp.src('./workshop/pages/**/js/*.js')
-        .pipe(babel({
-            presets: ['@babel/env'],
-            minified: true
-        }))
-        .pipe(plumber({errorHandler: notify.onError("JS Error: <%= error.message %>")}))
-        .pipe(gulp.dest('./dist/'));
-    });
-});
-
-gulp.task('watcher', gulp.parallel('scssWatch', 'es6Watch', 'htmlIncludeWatch', 'cssJsImportWatch'));
+gulp.task('watcher', gulp.series(gulp.parallel('scssWatch', 'es6Watch'), 'htmlIncludeWatch', 'htmlInlineWatch'));
+gulp.task('build',  gulp.series(gulp.parallel(convertSass, convertES6), moveHtml, convertHtmlInclude));

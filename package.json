@@ -24,9 +24,11 @@
     "gulp-art-include": "^0.2.1",
     "gulp-babel": "^8.0.0",
     "gulp-dart-sass": "^1.0.2",
+    "gulp-html-extend": "^1.1.6",
+    "gulp-html-path": "^1.0.0",
     "gulp-htmlmin": "^5.0.1",
+    "gulp-inject-scripts": "^1.1.0",
     "gulp-inline-source": "^4.0.0",
-    "gulp-notify": "^3.2.0",
     "gulp-plumber": "^1.2.1",
     "gulp-watch": "^5.0.1",
     "sass": "^1.26.10"
