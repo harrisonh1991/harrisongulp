@@ -8,83 +8,74 @@ var gulp = require('gulp'),
     plumber = require('gulp-plumber'),
     babel = require('gulp-babel'),
     htmlInclude = require('gulp-art-include'),
-    source = require('gulp-sourcemaps'),
+    //source = require('gulp-sourcemaps'),
     inlineSource = require('gulp-inline-source'),
     htmlMin = require('gulp-htmlmin'),
     htmlLayout = require('gulp-html-extend'),
     changeRootDirectory = require('gulp-inject-scripts'),
+    gulpRename = require('gulp-rename'),
     gulpHtmlPath = require('gulp-html-path');
-
-    //source easy to debug
 
 var path = {
     sass: './workshop/**/sass/*.scss',
     js: './workshop/**/js/*.js',
-    htmlInline:'./dist/**/*.html',
-    moveHtml: './workshop/**/*.html',
-    htmlInclude: './dist/**/!(_)*.html',
-    dist: './dist/'
+    htmlImport: './dist/02_pages/**/!(_)*.html',
+    moveToDist: './workshop/**/*',
+    dist: './dist/',
+    public: './public/'
 };
 
 var convertSass = (cb) => {
     gulp.src(path.sass)
-    .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
-    .pipe(plumber())
-    .pipe(gulp.dest(path.dist));
+        .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
+        .pipe(plumber())
+        .pipe(gulp.dest(path.dist));
     cb();
 },
 convertES6 = (cb) => {
     gulp.src(path.js)
-    .pipe(babel({
-        presets: ['@babel/env'],
-        minified: true
-    }))
-    .pipe(plumber())
-    .pipe(gulp.dest(path.dist));
+        .pipe(babel({
+            presets: ['@babel/env'],
+            minified: true
+        }))
+        .pipe(plumber())
+        .pipe(gulp.dest(path.dist));
     cb();
 },
-moveHtml = (cb) => {
-    gulp.src(path.moveHtml)
-    .pipe(gulp.dest(path.dist));
+moveToDist = (cb) =>{
+    gulp.src(path.moveToDist)
+        .pipe(gulp.dest(path.dist));
     cb();
 },
-convertHtmlInline = (cb) => {
-    gulp.src(path.htmlInline)
-    .pipe(gulpHtmlPath({ base: "./dist/", mode: "absolute"}))
-    .pipe(inlineSource())
-    .pipe(gulp.dest(path.dist))
-    .pipe(plumber());
-    cb();
-},
-convertHtmlInclude = (cb) => {
-    gulp.src(path.htmlInclude)
-    .pipe(htmlInclude({
-        data: {
-            "foo" : "bar"
-        }
-    }))
-    .pipe(htmlLayout({annotations:false, verbose:true, root: './dist/system/layout/'}))
-    .pipe(htmlMin({collapseWhitespace: true}))
-    .pipe(plumber())
-    .pipe(gulp.dest(path.dist));
+convertHtmlImport = (cb) => {
+    gulp.src(path.htmlImport)
+        .pipe(htmlMin())
+        .pipe(htmlLayout({annotations:false, verbose:true, root: './dist/01_system/layout/'}))
+        .pipe(htmlInclude({
+            data: {
+                "foo" : "bar"
+            }
+        }))
+        .pipe(inlineSource())
+        .pipe(gulpRename((path) =>{
+            path.dirname = ""
+        }))
+        .pipe(plumber())
+        .pipe(gulp.dest(path.public));
     cb();
 };
 
-gulp.task('scssWatch', function(cb){
+gulp.task('scssWatch', (cb) => {
     watcher(path.sass, convertSass(cb));
-
 });
 
-gulp.task('es6Watch', function(cb){
+gulp.task('es6Watch', (cb) => {
     watcher(path.js, convertES6(cb));
 });
 
-gulp.task('htmlIncludeWatch', function(cb){
-    watcher(path.htmlInclude, convertHtmlInclude(cb));
-});
-gulp.task('htmlInlineWatch', function(cb){
-    watcher(path.htmlInline, convertHtmlInline(cb));
+gulp.task('htmlImportWatch', (cb) => {
+    watcher(path.htmlImport, convertHtmlImport(cb));
 });
 
-gulp.task('watcher', gulp.series(gulp.parallel('scssWatch', 'es6Watch'), 'htmlIncludeWatch', 'htmlInlineWatch'));
-gulp.task('build',  gulp.series(gulp.parallel(convertSass, convertES6), moveHtml, convertHtmlInclude));
+gulp.task('watcher', gulp.series(gulp.parallel('scssWatch', 'es6Watch'), 'htmlImportWatch'));
+gulp.task('build',  gulp.series(gulp.parallel(convertSass, convertES6), moveToDist, convertHtmlImport));
