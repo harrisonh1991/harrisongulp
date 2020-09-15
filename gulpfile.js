@@ -2,7 +2,7 @@
  
 //npm install gulp-babel @babel/core @babel/preset-env
 
-var {src, dest, task, series, parallel} = require('gulp'),
+const {src, dest, task, series, parallel} = require('gulp'),
     sass = require('gulp-dart-sass'),
     watcher = require('gulp-watch'),
     plumber = require('gulp-plumber'),
@@ -14,9 +14,8 @@ var {src, dest, task, series, parallel} = require('gulp'),
     htmlLayout = require('gulp-html-extend'),
     gulpRename = require('gulp-rename'),
     notify = require('gulp-notify'),
-    gulpClean = require('gulp-clean');
-
-var sourcePath = {
+    gulpClean = require('gulp-clean'),
+    sourcePath = {
     sass: './workshop/**/css/*.scss',
     js: './workshop/**/js/*.js',
     distPagesHtml: './dist/02_pages/**/!(_)*.html',
@@ -26,9 +25,8 @@ var sourcePath = {
     public: './public/',
     layout: './workshop/01_system/layout/',
     export: ['./dist/*', './public/*']
-};
-
-var convertSass = () => {
+},
+convertSass = () => {
     return src(sourcePath.sass)
         .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
         .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
