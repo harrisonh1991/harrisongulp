@@ -2,11 +2,13 @@
  
 //npm install gulp-babel @babel/core @babel/preset-env
 
-var gulp = require('gulp'),
+var {src, dest, task, series, parallel} = require('gulp'),
     sass = require('gulp-dart-sass'),
     watcher = require('gulp-watch'),
     plumber = require('gulp-plumber'),
     babel = require('gulp-babel'),
+    path = require('path'),
+    through = require('through2'),
     htmlInclude = require('gulp-art-include'),
     //source = require('gulp-sourcemaps'),
     inlineSource = require('gulp-inline-source'),
@@ -14,68 +16,84 @@ var gulp = require('gulp'),
     htmlLayout = require('gulp-html-extend'),
     changeRootDirectory = require('gulp-inject-scripts'),
     gulpRename = require('gulp-rename'),
-    gulpHtmlPath = require('gulp-html-path');
+    gulpHtmlPath = require('gulp-html-path'),
+    notify = require('gulp-notify'),
+    wait = require('gulp-wait'),
+    del = require('del'),
+    gulpClean = require('gulp-clean');
 
-var path = {
-    sass: './workshop/**/sass/*.scss',
+var sourcePath = {
+    sass: './workshop/**/css/*.scss',
     js: './workshop/**/js/*.js',
-    htmlImport: './dist/02_pages/**/!(_)*.html',
+    distPagesHtml: './dist/02_pages/**/!(_)*.html',
+    workshopHtml: './workshop/**/!(_)*.html',
     moveToDist: './workshop/**/*',
     dist: './dist/',
-    public: './public/'
+    public: './public/',
+    layout: './workshop/01_system/layout/',
+    export: ['./dist/*', './public/*']
+},
+parsePath = () => {
+    return through.obj(function(file, enc, cb){
+        path.relative(path.join(file.cwd, file.base), file.path);
+        cb();
+    });
 };
 
-var convertSass = (cb) => {
-    gulp.src(path.sass)
+var convertSass = () => {
+    return src(sourcePath.sass)
+        .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
         .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
-        .pipe(plumber())
-        .pipe(gulp.dest(path.dist));
-    cb();
+        .pipe(dest(sourcePath.dist));
 },
-convertES6 = (cb) => {
-    gulp.src(path.js)
+convertES6 = () => {
+    return src(sourcePath.js)
+        .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
         .pipe(babel({
             presets: ['@babel/env'],
             minified: true
         }))
-        .pipe(plumber())
-        .pipe(gulp.dest(path.dist));
-    cb();
+        .pipe(dest(sourcePath.dist));
 },
-moveToDist = (cb) =>{
-    gulp.src(path.moveToDist)
-        .pipe(gulp.dest(path.dist));
-    cb();
+cleanExportFile = () => {
+    return src(sourcePath.export, {read: false})
+        .pipe(gulpClean());
 },
-convertHtmlImport = (cb) => {
-    gulp.src(path.htmlImport)
-        .pipe(htmlMin())
-        .pipe(htmlLayout({annotations:false, verbose:true, root: './dist/01_system/layout/'}))
+convertHtmlInclude = () => {
+    return src(sourcePath.workshopHtml)
+        .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
         .pipe(htmlInclude({
             data: {
                 "foo" : "bar"
             }
         }))
+        .pipe(htmlLayout({annotations:true, verbose:false, root: sourcePath.layout}))
+        .pipe(htmlMin({ collapseWhitespace: true }))
+        .pipe(dest(sourcePath.dist));
+},
+convertHtmlInline = () => {
+    return src(sourcePath.distPagesHtml)
+        .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
         .pipe(inlineSource())
-        .pipe(gulpRename((path) =>{
-            path.dirname = ""
+        .pipe(gulpRename((path) => {
+            path.dirname = ''
         }))
-        .pipe(plumber())
-        .pipe(gulp.dest(path.public));
-    cb();
+        .pipe(dest(sourcePath.public));
 };
 
-gulp.task('scssWatch', (cb) => {
-    watcher(path.sass, convertSass(cb));
+task('scssWatch', () => {
+    return watcher(sourcePath.sass, convertSass);
 });
 
-gulp.task('es6Watch', (cb) => {
-    watcher(path.js, convertES6(cb));
+task('es6Watch', () => {
+    return watcher(sourcePath.js, convertES6);
 });
 
-gulp.task('htmlImportWatch', (cb) => {
-    watcher(path.htmlImport, convertHtmlImport(cb));
+task('htmlImportWatch', (cb) => {
+    watcher(sourcePath.workshopPagesHtml, convertHtmlInclude);
+    watcher(sourcePath.distPagesHtml, convertHtmlInline);
+    cb();
 });
 
-gulp.task('watcher', gulp.series(gulp.parallel('scssWatch', 'es6Watch'), 'htmlImportWatch'));
-gulp.task('build',  gulp.series(gulp.parallel(convertSass, convertES6), moveToDist, convertHtmlImport));
+task('watcher', series( parallel('scssWatch', 'es6Watch'), 'htmlImportWatch'));
+task('build',  series( cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline));
