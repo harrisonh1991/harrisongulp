@@ -7,19 +7,13 @@ var {src, dest, task, series, parallel} = require('gulp'),
     watcher = require('gulp-watch'),
     plumber = require('gulp-plumber'),
     babel = require('gulp-babel'),
-    path = require('path'),
-    through = require('through2'),
     htmlInclude = require('gulp-art-include'),
     //source = require('gulp-sourcemaps'),
     inlineSource = require('gulp-inline-source'),
     htmlMin = require('gulp-htmlmin'),
     htmlLayout = require('gulp-html-extend'),
-    changeRootDirectory = require('gulp-inject-scripts'),
     gulpRename = require('gulp-rename'),
-    gulpHtmlPath = require('gulp-html-path'),
     notify = require('gulp-notify'),
-    wait = require('gulp-wait'),
-    del = require('del'),
     gulpClean = require('gulp-clean');
 
 var sourcePath = {
@@ -32,12 +26,6 @@ var sourcePath = {
     public: './public/',
     layout: './workshop/01_system/layout/',
     export: ['./dist/*', './public/*']
-},
-parsePath = () => {
-    return through.obj(function(file, enc, cb){
-        path.relative(path.join(file.cwd, file.base), file.path);
-        cb();
-    });
 };
 
 var convertSass = () => {
