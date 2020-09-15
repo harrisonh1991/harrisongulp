@@ -81,19 +81,25 @@ convertHtmlInline = () => {
         .pipe(dest(sourcePath.public));
 };
 
-task('scssWatch', () => {
-    return watcher(sourcePath.sass, convertSass);
-});
-
-task('es6Watch', () => {
-    return watcher(sourcePath.js, convertES6);
-});
-
-task('htmlImportWatch', (cb) => {
-    watcher(sourcePath.workshopPagesHtml, convertHtmlInclude);
-    watcher(sourcePath.distPagesHtml, convertHtmlInline);
+task('scssWatch', (cb) => {
+    watcher(sourcePath.sass, series(convertSass, convertHtmlInclude, convertHtmlInline));
     cb();
 });
 
-task('watcher', series( parallel('scssWatch', 'es6Watch'), 'htmlImportWatch'));
-task('build',  series( cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline));
+task('es6Watch', (cb) => {
+    watcher(sourcePath.js, series(convertES6, convertHtmlInclude, convertHtmlInline));
+    cb();
+});
+
+task('htmlIncludeWatch', (cb) => {
+    watcher(sourcePath.workshopHtml, convertHtmlInclude);
+    cb();
+});
+
+task('htmlInlineWatch', (cb) => {
+    watcher(sourcePath.distPagesHtml, convertHtmlInline); 
+    cb()
+});
+
+task('watcher', series( parallel('scssWatch', 'es6Watch'), 'htmlIncludeWatch', 'htmlInlineWatch'));
+task('build',  series( cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline, 'watcher'));

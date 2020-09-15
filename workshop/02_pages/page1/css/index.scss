@@ -3,9 +3,14 @@
     $display: none
 );
 
+body{
+    background-color: orange;
+}
+
 .test{
     &_t1{
         display: none;
-
+        position: relative;
+        float: left;
     }
 }
