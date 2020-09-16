@@ -2,6 +2,8 @@
  
 //es6: npm install gulp-babel @babel/core @babel/preset-env
 
+var option = {};
+
 const {src, dest, task, series, parallel} = require('gulp'),
     argv = require('yargs').argv,
     sass = require('gulp-dart-sass'),
@@ -18,6 +20,7 @@ const {src, dest, task, series, parallel} = require('gulp'),
     gulpClean = require('gulp-clean'),
     gulpIf = require('gulp-if'),
     gulpUglify = require('gulp-uglify-es').default,
+    jshint = require('gulp-jshint'),
     /**
      * config
      */
@@ -30,7 +33,42 @@ const {src, dest, task, series, parallel} = require('gulp'),
         dist: './dist/',
         public: './public/',
         layout: './workshop/01_system/layout/',
-        export: ['./dist/*', './public/*']
+        export: ['./dist/*', './public/*'],
+    },
+    optionManager = {
+        stage:{
+            gulpUglify:{
+                compress: false,
+                keep_classnames: true,
+                keep_fnames: true
+            },
+            sass:{},
+            layout: {
+                annotations:true, 
+                verbose:false, 
+                root: sourcePath.layout
+            },
+            inlineSource: {
+                compress: false
+            }
+        },
+        production:{
+            gulpUglify:{
+                compress: true
+            },
+            sass:{
+                outputStyle: 'compressed'
+            },
+            layout: {
+                annotations:false, 
+                verbose:false, 
+                root: sourcePath.layout
+            }
+            ,
+            inlineSource: {
+                compress: false
+            }
+        }
     },
     /**
      * task
@@ -38,18 +76,18 @@ const {src, dest, task, series, parallel} = require('gulp'),
     convertSass = () => {
         return src(sourcePath.sass)
             .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
-            .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
+            .pipe(sass(option.sass).on('error', sass.logError))
             .pipe(dest(sourcePath.dist));
     },
     convertES6 = () => {
         return src(sourcePath.js)
             .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
-            .pipe(gulpIf(argv.production, gulpUglify({
-                compress: true,
-                keep_classnames: false,
-                keep_fanems: false
-            })))
-            .pipe(gulpIf(!argv.production, gulpUglify()))
+            .pipe(jshint({
+                "undef": true,
+                "unused": true
+            }))
+            .pipe(jshint.reporter('default'))
+            .pipe(gulpUglify(option.gulpUglify))
             .pipe(dest(sourcePath.dist));
     },
     cleanExportFile = () => {
@@ -64,18 +102,22 @@ const {src, dest, task, series, parallel} = require('gulp'),
                     "foo" : "bar"
                 }
             }))
-            .pipe(htmlLayout({annotations:true, verbose:false, root: sourcePath.layout}))
-            .pipe(gulpIf(argv.production, htmlMin({ collapseWhitespace: true })))
+            .pipe(htmlLayout(option.layout))
+            .pipe(gulpIf(argv.production, htmlMin({ collapseWhitespace: false })))
             .pipe(dest(sourcePath.dist));
     },
     convertHtmlInline = () => {
         return src(sourcePath.distPagesHtml)
             .pipe(plumber({errorHandler: notify.onError("Error: <%= error.message %>")}))
-            .pipe(inlineSource())
+            .pipe(inlineSource(option.inlineSource))
             .pipe(gulpRename((path) => {
                 path.dirname = ''
             }))
             .pipe(dest(sourcePath.public));
+    },
+    init = (cb) => {
+        option = (argv.production)? optionManager.production: optionManager.stage;
+        cb();
     };
 /**
  * watcher
@@ -103,5 +145,6 @@ task('htmlInlineWatch', (cb) => {
 /**
  * task group
  */
-task('watcher', series( parallel('scssWatch', 'es6Watch'), 'htmlIncludeWatch', 'htmlInlineWatch'));
-task('build',  series( cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline, 'watcher'));
+task('watcher', series( init, parallel('scssWatch', 'es6Watch'), 'htmlIncludeWatch', 'htmlInlineWatch'));
+task('build',  series( init, cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline));
+task('buildWatch',  series( init, cleanExportFile, parallel(convertSass, convertES6), convertHtmlInclude, convertHtmlInline));

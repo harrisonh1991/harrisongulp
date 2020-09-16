@@ -1,3 +1,1 @@
-$(document).ready(()=>{
-    document.querySelector('#abc').innerHTML = '123'; 
-});
+document.querySelector('#abc').innerHTML = '123';
